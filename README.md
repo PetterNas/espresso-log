@@ -33,21 +33,17 @@ Re-run the script after code changes to redeploy. `./scripts/install-launchd.sh 
 
 ## Run on the home server (Docker)
 
-The image listens on port 8080 and keeps everything (shots, beans, photos) in `/data/espresso.db`.
+Every push to `main` builds the image and publishes it as `ghcr.io/petternas/espresso-log:latest`
+(see `.github/workflows/docker.yml`). It listens on port 8080 and keeps everything (shots, beans,
+photos) in `/data/espresso.db`. The compose service and Caddy route live in `homeserver-infra`.
+
+To deploy a new version, on the server:
 
 ```bash
-docker login git.petternet.net          # once; password = Forgejo token with package write
-./scripts/publish-image.sh              # build linux/amd64 and push :latest
-```
-
-On the server (service, Caddy route and backup entry live in `homeserver-infra`):
-
-```bash
-mkdir -p /opt/docker/apps/espresso && chown 1000:1000 /opt/docker/apps/espresso
 docker compose pull espresso && docker compose up -d espresso
 ```
 
-Behind Authelia, an expired session doesn't lose shots: they are queued and a **Sign in** pill appears; tapping it goes through the login and syncs.
+Schema migrations run automatically when the container starts.
 
 ## Using it
 
