@@ -15,6 +15,10 @@ public class Bean
     public int? Rating { get; set; }
     public string? Review { get; set; }
     public bool Finished { get; set; }
+    // Last weigh-in: grams left at LeftAt (e.g. a bag opened before it was logged here).
+    // The countdown starts from this instead of AmountGrams, minus shots made after LeftAt.
+    public double? LeftGrams { get; set; }
+    public DateTime? LeftAt { get; set; }
 
     public List<Shot> Shots { get; set; } = [];
     public BeanPhoto? Photo { get; set; }

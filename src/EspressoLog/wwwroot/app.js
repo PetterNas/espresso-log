@@ -467,6 +467,10 @@ function openBeanForm(bean) {
   showPhoto(photoUrl(bean));
   $('#b-price').value = fmt(bean?.price, 2);
   $('#b-amount').value = fmt(bean?.amountGrams);
+  // Prefilled with the current estimate; only a changed value is sent as a new weigh-in.
+  const left = bean ? bagStats(bean).left : null;
+  $('#b-left').value = left != null && (bean.leftGrams != null || bean.usedGrams > 0) ? fmt(left, 0) : '';
+  $('#b-left').dataset.initial = $('#b-left').value;
   $('#b-finished').checked = !!bean?.finished;
   setBeanRating(bean?.rating ?? null);
   clearValidation($('#bean-form'));
@@ -493,10 +497,13 @@ function readBeanForm() {
   for (const key of Object.keys(PICKERS)) bean[key] = readPicker(key);
   bean.price = num($('#b-price').value);
   bean.amountGrams = num($('#b-amount').value);
+  const left = $('#b-left').value.trim();
+  bean.leftGrams = left !== $('#b-left').dataset.initial ? num(left) : null;
   const bad = [];
   if (!bean.name) bad.push('#b-name');
   if (Number.isNaN(bean.price)) bad.push('#b-price');
   if (Number.isNaN(bean.amountGrams)) bad.push('#b-amount');
+  if (Number.isNaN(bean.leftGrams)) bad.push('#b-left');
   for (const { select, input } of Object.values(PICKERS)) {
     if ($(select).value === ADD_NEW && !$(input).value.trim()) bad.push(input);
   }
@@ -572,12 +579,21 @@ function recipe(s) {
 }
 
 // What's left in a bag, counting shots still waiting to sync, at the bag's average dose.
+// Counts down from the last weigh-in if there is one, else from the full bag.
 function bagStats(b) {
   const pending = queued().filter((s) => s.beanId === b.id);
   const shots = b.shotCount + pending.length;
   const used = b.usedGrams + pending.reduce((sum, s) => sum + s.doseGrams, 0);
   const dose = shots ? used / shots : DEFAULT_DOSE;
-  const left = b.amountGrams != null ? Math.max(0, b.amountGrams - used) : null;
+  let left = null;
+  if (b.leftGrams != null) {
+    const since = b.usedSinceLeftGrams + pending
+      .filter((s) => new Date(s.createdAt) > new Date(b.leftAt))
+      .reduce((sum, s) => sum + s.doseGrams, 0);
+    left = Math.max(0, b.leftGrams - since);
+  } else if (b.amountGrams != null) {
+    left = Math.max(0, b.amountGrams - used);
+  }
   return {
     left,
     shotsLeft: left != null ? Math.floor(left / dose) : null,

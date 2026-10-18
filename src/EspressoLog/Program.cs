@@ -276,7 +276,10 @@ record BeanDto(
     DateTime? LastUsedAt,
     double? LastGrind,
     DateTime? PhotoUpdatedAt,
-    BestShotDto? BestShot)
+    BestShotDto? BestShot,
+    double? LeftGrams,
+    DateTime? LeftAt,
+    double UsedSinceLeftGrams)
 {
     public static readonly Expression<Func<Bean, BeanDto>> Projection = b => new BeanDto(
         b.Id, b.CreatedAt, b.Name, b.Roaster, b.Origin, b.PurchasedFrom, b.RoastDate, b.PurchaseDate,
@@ -288,7 +291,10 @@ record BeanDto(
         b.Photo == null ? null : b.Photo.UpdatedAt,
         b.Shots.Where(s => s.Best)
             .Select(s => new BestShotDto(s.Id, s.CreatedAt, s.GrindSetting, s.DoseGrams, s.TimeSeconds, s.YieldGrams))
-            .FirstOrDefault());
+            .FirstOrDefault(),
+        b.LeftGrams,
+        b.LeftAt,
+        b.Shots.Where(s => s.CreatedAt > b.LeftAt).Sum(s => s.DoseGrams));
 }
 
 record BeanInput(
@@ -302,7 +308,8 @@ record BeanInput(
     double? AmountGrams,
     int? Rating,
     string? Review,
-    bool Finished)
+    bool Finished,
+    double? LeftGrams)  // set only when the user enters a new weigh-in; null keeps the current one
 {
     public Dictionary<string, string[]> Validate()
     {
@@ -314,6 +321,7 @@ record BeanInput(
         if (AmountGrams is < 1 or > 10000) errors[nameof(AmountGrams)] = ["Amount must be between 1 and 10 000 g."];
         if (Rating is < 1 or > 5) errors[nameof(Rating)] = ["Rating must be between 1 and 5."];
         if (Review?.Length > 2000) errors[nameof(Review)] = ["Review is too long."];
+        if (LeftGrams is < 0 or > 10000) errors[nameof(LeftGrams)] = ["Grams left must be between 0 and 10 000."];
         return errors;
     }
 
@@ -330,6 +338,11 @@ record BeanInput(
         bean.Rating = Rating;
         bean.Review = Text.Clean(Review);
         bean.Finished = Finished;
+        if (LeftGrams is { } left)
+        {
+            bean.LeftGrams = left;
+            bean.LeftAt = DateTime.UtcNow;
+        }
     }
 }
 

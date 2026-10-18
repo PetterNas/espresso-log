@@ -315,6 +315,7 @@ label.secondary { display: inline-block; font-weight: 600; border-radius: 99px; 
 .chip.warn { background: #fdf0d5; color: #8a5a00; }
 
 .bean-info { margin-top: 12px; }
+.hint { display: block; margin-top: 6px; font-size: 13px; color: var(--muted); }
 
 /* Best recipe + dial-in hint, between the recent strip and the inputs */
 .guide { display: grid; gap: 8px; margin: -6px 0 20px; }

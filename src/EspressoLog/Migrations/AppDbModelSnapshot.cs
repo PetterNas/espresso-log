@@ -32,6 +32,12 @@ namespace EspressoLog.Migrations
                     b.Property<bool>("Finished")
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateTime?>("LeftAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("LeftGrams")
+                        .HasColumnType("REAL");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)

@@ -31,6 +31,9 @@ public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
             e.Property(x => x.Origin).HasMaxLength(200);
             e.Property(x => x.PurchasedFrom).HasMaxLength(200);
             e.Property(x => x.Review).HasMaxLength(2000);
+            e.Property(x => x.LeftAt).HasConversion(
+                v => v.HasValue ? v.Value.ToUniversalTime() : v,
+                v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v);
             // SQLite has no decimal type; store as REAL so sorting and math work.
             e.Property(x => x.Price).HasConversion<double?>();
             e.HasOne(x => x.Photo).WithOne().HasForeignKey<BeanPhoto>(p => p.BeanId).OnDelete(DeleteBehavior.Cascade);
