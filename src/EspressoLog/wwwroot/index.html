@@ -58,12 +58,15 @@
             <span>Beans</span>
             <select id="bean" name="bean" required></select>
           </label>
+          <div id="bean-info" class="chips bean-info" hidden></div>
         </div>
 
         <section id="recent-panel" class="recent">
           <h2 id="recent-title">Recent shots</h2>
           <ul id="recent" class="recent-list"></ul>
         </section>
+
+        <div id="guide" class="guide" hidden></div>
 
         <div class="shot-grid">
         <div class="group">
@@ -106,9 +109,19 @@
               <button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button><button type="button" data-v="5">5</button>
             </div>
           </div>
+          <div class="field">
+            <span>Taste</span>
+            <div class="tags" id="tags">
+              <button type="button" data-tag="sour">Sour</button><button type="button" data-tag="bitter">Bitter</button><button type="button" data-tag="balanced">Balanced</button><button type="button" data-tag="sweet">Sweet</button><button type="button" data-tag="watery">Watery</button><button type="button" data-tag="syrupy">Syrupy</button><button type="button" data-tag="channeling">Channeling</button>
+            </div>
+          </div>
           <label class="field">
             <span>Notes</span>
-            <textarea id="notes" name="notes" rows="3" placeholder="Sour, fast, channeling…"></textarea>
+            <textarea id="notes" name="notes" rows="2" placeholder="Anything else worth remembering"></textarea>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="best">
+            <span>Best shot for this bag</span>
           </label>
         </div>
         </div>

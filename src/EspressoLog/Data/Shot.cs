@@ -12,4 +12,13 @@ public class Shot
     public double? YieldGrams { get; set; }
     public int? Rating { get; set; }
     public string? Notes { get; set; }
+    // Taste tags from ShotTags.All, stored as a JSON array.
+    public string[] Tags { get; set; } = [];
+    // The recipe to come back to for this bag; at most one per bean.
+    public bool Best { get; set; }
+}
+
+public static class ShotTags
+{
+    public static readonly string[] All = ["sour", "bitter", "balanced", "sweet", "watery", "syrupy", "channeling"];
 }

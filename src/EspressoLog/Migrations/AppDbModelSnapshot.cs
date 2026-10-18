@@ -101,6 +101,9 @@ namespace EspressoLog.Migrations
                     b.Property<int>("BeanId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("Best")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
@@ -116,6 +119,10 @@ namespace EspressoLog.Migrations
 
                     b.Property<int?>("Rating")
                         .HasColumnType("INTEGER");
+
+                    b.PrimitiveCollection<string>("Tags")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("TimeSeconds")
                         .HasColumnType("INTEGER");

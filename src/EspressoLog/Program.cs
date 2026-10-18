@@ -49,6 +49,7 @@ api.MapPost("/shots", async (AppDb db, ShotInput input) =>
     input.ApplyTo(shot);
     db.Shots.Add(shot);
     await db.SaveChangesAsync();
+    await ShotInput.KeepSingleBest(db, shot);
     return Results.Created($"/api/shots/{shot.Id}", await db.Shots.Where(s => s.Id == shot.Id).Select(ShotDto.Projection).FirstAsync());
 });
 
@@ -60,6 +61,7 @@ api.MapPut("/shots/{id:int}", async (AppDb db, int id, ShotInput input) =>
     if (input.CreatedAt is { } createdAt) shot.CreatedAt = createdAt.ToUniversalTime();
     input.ApplyTo(shot);
     await db.SaveChangesAsync();
+    await ShotInput.KeepSingleBest(db, shot);
     return Results.Ok(await db.Shots.Where(s => s.Id == id).Select(ShotDto.Projection).FirstAsync());
 });
 
@@ -154,7 +156,7 @@ api.MapDelete("/beans/{id:int}/photo", async (AppDb db, int id) =>
 api.MapGet("/shots.csv", async (AppDb db) =>
 {
     var shots = await db.Shots.AsNoTracking().Include(s => s.Bean).OrderBy(s => s.CreatedAt).ToListAsync();
-    var sb = new StringBuilder("id,created_at,beans,roaster,grind,dose_g,yield_g,time_s,rating,notes\n");
+    var sb = new StringBuilder("id,created_at,beans,roaster,grind,dose_g,yield_g,time_s,rating,tags,best,notes\n");
     foreach (var s in shots)
     {
         sb.AppendLine(string.Join(',',
@@ -167,6 +169,8 @@ api.MapGet("/shots.csv", async (AppDb db) =>
             s.YieldGrams?.ToString(CultureInfo.InvariantCulture) ?? "",
             s.TimeSeconds,
             s.Rating?.ToString() ?? "",
+            Csv(string.Join(' ', s.Tags)),
+            s.Best ? "yes" : "",
             Csv(s.Notes ?? "")));
     }
     return Results.File(Encoding.UTF8.GetBytes(sb.ToString()), "text/csv", "espresso-shots.csv");
@@ -194,10 +198,13 @@ record ShotDto(
     int TimeSeconds,
     double? YieldGrams,
     int? Rating,
-    string? Notes)
+    string? Notes,
+    string[] Tags,
+    bool Best)
 {
     public static readonly Expression<Func<Shot, ShotDto>> Projection = s => new ShotDto(
-        s.Id, s.CreatedAt, s.BeanId, s.Bean.Name, s.GrindSetting, s.DoseGrams, s.TimeSeconds, s.YieldGrams, s.Rating, s.Notes);
+        s.Id, s.CreatedAt, s.BeanId, s.Bean.Name, s.GrindSetting, s.DoseGrams, s.TimeSeconds, s.YieldGrams, s.Rating, s.Notes,
+        s.Tags, s.Best);
 }
 
 record ShotInput(
@@ -208,6 +215,8 @@ record ShotInput(
     double? YieldGrams,
     int? Rating,
     string? Notes,
+    string[]? Tags,
+    bool Best,
     DateTime? CreatedAt)
 {
     public async Task<Dictionary<string, string[]>> ValidateAsync(AppDb db)
@@ -220,6 +229,7 @@ record ShotInput(
         if (YieldGrams is < 1 or > 200) errors[nameof(YieldGrams)] = ["Yield must be between 1 and 200 g."];
         if (Rating is < 1 or > 5) errors[nameof(Rating)] = ["Rating must be between 1 and 5."];
         if (Notes?.Length > 2000) errors[nameof(Notes)] = ["Notes are too long."];
+        if (Tags?.FirstOrDefault(t => !ShotTags.All.Contains(t)) is { } bad) errors[nameof(Tags)] = [$"Unknown taste tag '{bad}'."];
         return errors;
     }
 
@@ -232,8 +242,20 @@ record ShotInput(
         shot.YieldGrams = YieldGrams;
         shot.Rating = Rating;
         shot.Notes = Text.Clean(Notes);
+        shot.Tags = ShotTags.All.Where(t => Tags?.Contains(t) == true).ToArray();  // canonical order, no duplicates
+        shot.Best = Best;
+    }
+
+    // Marking a shot as best un-marks the bag's previous best.
+    public static async Task KeepSingleBest(AppDb db, Shot shot)
+    {
+        if (!shot.Best) return;
+        await db.Shots.Where(s => s.BeanId == shot.BeanId && s.Id != shot.Id && s.Best)
+            .ExecuteUpdateAsync(u => u.SetProperty(s => s.Best, false));
     }
 }
+
+record BestShotDto(int Id, DateTime CreatedAt, double GrindSetting, double DoseGrams, int TimeSeconds, double? YieldGrams);
 
 record BeanDto(
     int Id,
@@ -253,7 +275,8 @@ record BeanDto(
     double UsedGrams,
     DateTime? LastUsedAt,
     double? LastGrind,
-    DateTime? PhotoUpdatedAt)
+    DateTime? PhotoUpdatedAt,
+    BestShotDto? BestShot)
 {
     public static readonly Expression<Func<Bean, BeanDto>> Projection = b => new BeanDto(
         b.Id, b.CreatedAt, b.Name, b.Roaster, b.Origin, b.PurchasedFrom, b.RoastDate, b.PurchaseDate,
@@ -262,7 +285,10 @@ record BeanDto(
         b.Shots.Sum(s => s.DoseGrams),
         b.Shots.Max(s => (DateTime?)s.CreatedAt),
         b.Shots.OrderByDescending(s => s.CreatedAt).ThenByDescending(s => s.Id).Select(s => (double?)s.GrindSetting).FirstOrDefault(),
-        b.Photo == null ? null : b.Photo.UpdatedAt);
+        b.Photo == null ? null : b.Photo.UpdatedAt,
+        b.Shots.Where(s => s.Best)
+            .Select(s => new BestShotDto(s.Id, s.CreatedAt, s.GrindSetting, s.DoseGrams, s.TimeSeconds, s.YieldGrams))
+            .FirstOrDefault());
 }
 
 record BeanInput(

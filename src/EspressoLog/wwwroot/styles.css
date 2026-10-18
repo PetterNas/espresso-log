@@ -162,6 +162,14 @@ input.big, .stepper input {
 .rating button:hover:not(.on) { color: var(--text); }
 .rating button.on { background: var(--accent); color: var(--accent-text); }
 
+.tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.tags button {
+  border: 0; border-radius: 99px; padding: 9px 14px;
+  font-size: 15px; font-weight: 550; background: var(--surface-2); color: var(--muted);
+}
+.tags button:hover:not(.on) { color: var(--text); }
+.tags button.on { background: var(--accent); color: var(--accent-text); }
+
 .toggle { display: flex; align-items: center; gap: 12px; font-weight: 500; cursor: pointer; }
 .toggle input {
   flex: none; width: 46px; height: 28px; padding: 0; border: 0; border-radius: 99px;
@@ -304,6 +312,30 @@ label.secondary { display: inline-block; font-weight: 600; border-radius: 99px; 
   background: var(--surface-2); color: var(--muted); font-variant-numeric: tabular-nums;
 }
 .chip.accent { background: var(--accent-soft); color: var(--accent); }
+.chip.warn { background: #fdf0d5; color: #8a5a00; }
+
+.bean-info { margin-top: 12px; }
+
+/* Best recipe + dial-in hint, between the recent strip and the inputs */
+.guide { display: grid; gap: 8px; margin: -6px 0 20px; }
+.guide .line {
+  display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow);
+  font-size: 15px;
+}
+.guide .line.best { background: var(--accent-soft); border-color: #ead9c6; }
+.guide .text { flex: 1; min-width: 0; }
+.guide .text b { font-weight: 650; }
+.guide .label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); }
+.guide button {
+  flex: none; border: 0; border-radius: 99px; padding: 8px 16px; font-weight: 600; font-size: 14px;
+  background: var(--accent); color: var(--accent-text);
+}
+.guide button:hover { background: var(--accent-hover); }
+.guide .line:not(.best) button { background: var(--accent-soft); color: var(--accent); }
+
+.tagline { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.badge-best { color: var(--accent); font-weight: 650; }
 
 .finished { margin-top: 28px; }
 .finished > summary { cursor: pointer; color: var(--muted); font-weight: 600; padding: 4px; margin-bottom: 12px; }

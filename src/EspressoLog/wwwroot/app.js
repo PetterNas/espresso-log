@@ -7,12 +7,22 @@ const BEANS_KEY = 'espresso.beans';
 const DEFAULT_DOSE = 18;
 const DEFAULT_YIELD = 36;
 const TABS = ['log', 'beans', 'history', 'charts'];
+const TAG_LABELS = {
+  sour: 'Sour', bitter: 'Bitter', balanced: 'Balanced', sweet: 'Sweet',
+  watery: 'Watery', syrupy: 'Syrupy', channeling: 'Channeling',
+};
+// Dial-in hints. Most grinders get finer as the number goes down; use +1 if yours is the other way round.
+const FINER = -1;
+const GRIND_STEP = 0.5;
+const TARGET_TIME = [25, 32];  // seconds; outside this range with no taste tags, nudge the grind
+const LOW_SHOTS = 3;           // warn when the bag has this many shots or fewer left
 
 const state = {
   shots: [],         // newest first, from server
   beans: [],         // all beans incl. finished; active first, most recently used first
   editingId: null,
   signedOut: false,  // the login proxy redirected an API call
+  tags: new Set(),
   editingBeanId: null,
   rating: null,
   beanRating: null,
@@ -183,6 +193,8 @@ function fillForm(shot) {
   $('#time').value = shot.timeSeconds ?? '';
   $('#notes').value = shot.notes ?? '';
   setRating(shot.rating ?? null);
+  setTags(shot.tags);
+  $('#best').checked = !!shot.best;
   renderRecent();
   clearValidation($('#shot-form'));
   showError('');
@@ -197,6 +209,8 @@ function prefillNew() {
   $('#time').value = '';
   $('#notes').value = '';
   setRating(null);
+  setTags([]);
+  $('#best').checked = false;
   clearValidation($('#shot-form'));
   showError('');
 }
@@ -215,6 +229,16 @@ function bindRating(sel, get, set) {
   });
 }
 
+function setTags(tags) {
+  state.tags = new Set(tags ?? []);
+  document.querySelectorAll('#tags button').forEach((b) => b.classList.toggle('on', state.tags.has(b.dataset.tag)));
+}
+function toggleTag(tag) {
+  const next = new Set(state.tags);
+  if (next.has(tag)) next.delete(tag); else next.add(tag);
+  setTags(next);
+}
+
 function readForm() {
   const beanId = Number($('#bean').value) || null;
   const shot = {
@@ -225,6 +249,8 @@ function readForm() {
     yieldGrams: num($('#yield').value),
     rating: state.rating,
     notes: $('#notes').value.trim() || null,
+    tags: Object.keys(TAG_LABELS).filter((t) => state.tags.has(t)),
+    best: $('#best').checked,
   };
   const bad = [];
   if (!shot.beanId) bad.push('#bean');
@@ -519,12 +545,51 @@ function formatDate(iso) {
     ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
-function daysSince(isoDate) {
+// Whole days from a yyyy-mm-dd date to a moment (default now), by local calendar day.
+function daysSince(isoDate, until = new Date()) {
   const [y, m, d] = isoDate.split('-').map(Number);
   const then = new Date(y, m - 1, d);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.round((today - then) / 86400000);
+  const day = new Date(until);
+  day.setHours(0, 0, 0, 0);
+  return Math.round((day - then) / 86400000);
+}
+
+// "day 9": how long the beans had rested when the shot was pulled.
+function restDay(shot) {
+  const roast = beanById(shot.beanId)?.roastDate;
+  if (!roast) return '';
+  const d = daysSince(roast, shot.createdAt);
+  return d >= 0 ? `day ${d}` : '';
+}
+
+function tagLine(s) {
+  const tags = (s.tags ?? []).map((t) => TAG_LABELS[t] ?? t);
+  return tags.length ? `<div class="tagline">${tags.map(esc).join(' · ')}</div>` : '';
+}
+
+function recipe(s) {
+  return `<b>${fmt(s.grindSetting)}</b> · ${fmt(s.doseGrams)}${s.yieldGrams != null ? ` → ${fmt(s.yieldGrams)}` : ''} g · ${s.timeSeconds} s`;
+}
+
+// What's left in a bag, counting shots still waiting to sync, at the bag's average dose.
+function bagStats(b) {
+  const pending = queued().filter((s) => s.beanId === b.id);
+  const shots = b.shotCount + pending.length;
+  const used = b.usedGrams + pending.reduce((sum, s) => sum + s.doseGrams, 0);
+  const dose = shots ? used / shots : DEFAULT_DOSE;
+  const left = b.amountGrams != null ? Math.max(0, b.amountGrams - used) : null;
+  return {
+    left,
+    shotsLeft: left != null ? Math.floor(left / dose) : null,
+    costPerShot: b.price != null && b.amountGrams ? (b.price / b.amountGrams) * dose : null,
+  };
+}
+
+function shotsLeftChip(b, st) {
+  const n = st.shotsLeft;
+  const text = n === 0 ? 'Bag empty?' : `≈ ${n} shot${n === 1 ? '' : 's'} left`;
+  const cls = b.finished ? '' : n <= LOW_SHOTS ? ' warn' : ' accent';
+  return `<span class="chip${cls}">${text} · ${fmt(st.left, 0)} g</span>`;
 }
 
 function stars(n) {
@@ -553,13 +618,13 @@ function beanCard(b) {
     const d = daysSince(b.roastDate);
     chips.push(`<span class="chip">${d <= 0 ? 'Roasted today' : `Roasted ${d} d ago`}</span>`);
   }
-  if (b.amountGrams != null) {
-    const left = Math.max(0, b.amountGrams - b.usedGrams);
-    chips.push(`<span class="chip${b.finished ? '' : ' accent'}">≈ ${fmt(left, 0)} g left</span>`);
-  }
+  const st = bagStats(b);
+  if (st.left != null) chips.push(shotsLeftChip(b, st));
   chips.push(`<span class="chip">${b.shotCount} shot${b.shotCount === 1 ? '' : 's'}</span>`);
-  if (b.lastGrind != null) chips.push(`<span class="chip">Grind ${fmt(b.lastGrind)}</span>`);
+  if (b.bestShot) chips.push(`<span class="chip accent">★ Best ${fmt(b.bestShot.grindSetting)} · ${b.bestShot.timeSeconds} s</span>`);
+  else if (b.lastGrind != null) chips.push(`<span class="chip">Grind ${fmt(b.lastGrind)}</span>`);
   if (b.price != null) chips.push(`<span class="chip">Price ${fmt(b.price, 2)}</span>`);
+  if (st.costPerShot != null) chips.push(`<span class="chip">${fmt(st.costPerShot, 2)} / shot</span>`);
   const sub = [b.roaster, b.origin].filter(Boolean).map(esc).join(' · ');
   return `
     <li class="card" data-id="${b.id}">
@@ -617,9 +682,10 @@ function renderHistory() {
   }
   list.innerHTML = shots.map((s, i) => `
     <li class="card${s.pending ? ' pending' : ''}" data-i="${i}">
-      <div class="row1"><span>${formatDate(s.createdAt)}</span><span>${s.pending ? 'not synced' : '#' + s.id}</span></div>
-      <div class="title">${esc(s.beanName)}</div>
+      <div class="row1"><span>${formatDate(s.createdAt)}${restDay(s) ? ' · ' + restDay(s) : ''}</span><span>${s.pending ? 'not synced' : '#' + s.id}</span></div>
+      <div class="title">${esc(s.beanName)}${s.best ? ' <span class="badge-best">★ Best</span>' : ''}</div>
       <div class="nums">${shotNums(s).map((p) => `<span>${p}</span>`).join('')}</div>
+      ${tagLine(s)}
       ${s.notes ? `<div class="notes">${esc(s.notes)}</div>` : ''}
     </li>`).join('');
   list.querySelectorAll('.card').forEach((el) => {
@@ -638,17 +704,84 @@ function renderRecent() {
   $('#recent').innerHTML = shots.length
     ? shots.map((s) => `
       <li>
-        <div class="when">${formatDate(s.createdAt)}${s.id ? '' : ' · not synced'}</div>
-        <div class="grind">Grind <b>${fmt(s.grindSetting)}</b></div>
+        <div class="when">${formatDate(s.createdAt)}${restDay(s) ? ' · ' + restDay(s) : ''}${s.id ? '' : ' · not synced'}</div>
+        <div class="grind">Grind <b>${fmt(s.grindSetting)}</b>${s.best ? ' <span class="badge-best">★ Best</span>' : ''}</div>
         <div class="nums">
           <span><b>${fmt(s.doseGrams)}</b>${s.yieldGrams != null ? ` → <b>${fmt(s.yieldGrams)}</b>` : ''} g</span>
           <span><b>${s.timeSeconds}</b> s</span>
           ${s.yieldGrams != null ? `<span>1:${(s.yieldGrams / s.doseGrams).toFixed(1)}</span>` : ''}
         </div>
         ${stars(s.rating)}
+        ${tagLine(s)}
         ${s.notes ? `<div class="notes" title="${esc(s.notes)}">${esc(s.notes)}</div>` : ''}
       </li>`).join('')
     : '<li class="empty">No shots with these beans yet.</li>';
+  renderBeanInfo(bean);
+  renderGuide(bean, shots[0]);
+}
+
+function renderBeanInfo(bean) {
+  const chips = [];
+  if (bean?.roastDate) {
+    const d = daysSince(bean.roastDate);
+    if (d >= 0) chips.push(`<span class="chip">Day ${d} off roast</span>`);
+  }
+  if (bean) {
+    const st = bagStats(bean);
+    if (st.left != null) chips.push(shotsLeftChip(bean, st));
+    if (st.costPerShot != null) chips.push(`<span class="chip">${fmt(st.costPerShot, 2)} / shot</span>`);
+  }
+  $('#bean-info').innerHTML = chips.join('');
+  $('#bean-info').hidden = chips.length === 0;
+}
+
+// Suggest the next grind from the last shot: taste tags first, extraction time as a fallback.
+function dialHint(s) {
+  const t = new Set(s.tags ?? []);
+  const what = [`${s.timeSeconds} s`, ...(s.tags ?? []).map((x) => (TAG_LABELS[x] ?? x).toLowerCase())].join(', ');
+  const say = (dir, why) => {
+    const grind = dir ? Math.max(0, Math.round((s.grindSetting + dir * FINER * GRIND_STEP) / GRIND_STEP) * GRIND_STEP) : s.grindSetting;
+    const move = dir === 1 ? 'finer' : dir === -1 ? 'coarser' : '';
+    const reason = [move, why].filter(Boolean).join(', ');
+    // "Keep" needs no button: the form already starts from the last shot's grind.
+    return { text: `Last: ${esc(what)} → ${dir ? 'try' : 'keep'} <b>${fmt(grind)}</b>${reason ? ` (${reason})` : ''}`, grind: dir ? grind : null };
+  };
+  const sour = t.has('sour') || t.has('watery');
+  const bitter = t.has('bitter');
+  if (t.has('channeling') || (sour && bitter)) {
+    return { text: `Last: ${esc(what)} → fix puck prep (distribution, tamp) before changing the grind`, grind: null };
+  }
+  if (sour) return say(1, 'under-extracted');
+  if (bitter) return say(-1, 'over-extracted');
+  if (t.has('balanced') || t.has('sweet') || t.has('syrupy')) return say(0, 'it tasted good');
+  if (s.timeSeconds < TARGET_TIME[0]) return say(1, 'it ran fast');
+  if (s.timeSeconds > TARGET_TIME[1]) return say(-1, 'it ran slow');
+  return say(0, 'time on target');
+}
+
+function renderGuide(bean, last) {
+  const lines = [];
+  if (!state.editingId) {
+    const best = bean?.bestShot;
+    if (best) lines.push({ cls: 'best', label: 'Best recipe', text: recipe(best), apply: best });
+    const hint = last && dialHint(last);
+    if (hint) lines.push({ label: 'Next shot', text: hint.text, apply: hint.grind != null ? { grindSetting: hint.grind } : null });
+  }
+  const guide = $('#guide');
+  guide.hidden = lines.length === 0;
+  guide.innerHTML = lines.map((l, i) => `
+    <div class="line ${l.cls ?? ''}">
+      <div class="text"><span class="label">${l.label}</span>${l.text}</div>
+      ${l.apply ? `<button type="button" data-i="${i}">Use</button>` : ''}
+    </div>`).join('');
+  guide.querySelectorAll('button').forEach((btn) => btn.addEventListener('click', () => {
+    const r = lines[Number(btn.dataset.i)].apply;
+    $('#grind').value = fmt(r.grindSetting);
+    if (r.doseGrams != null) $('#dose').value = fmt(r.doseGrams);
+    if (r.yieldGrams != null) $('#yield').value = fmt(r.yieldGrams);
+    ['#grind', '#dose', '#yield'].forEach((sel) => $(sel).classList.remove('invalid'));
+    btn.textContent = 'Using ✓';
+  }));
 }
 
 // ---------- charts ----------
@@ -824,6 +957,7 @@ function init() {
   $('#cancel-edit').addEventListener('click', () => { endEdit(); switchTab('history'); });
   $('#delete').addEventListener('click', onDelete);
   bindRating('#rating', () => state.rating, setRating);
+  $('#tags').addEventListener('click', (e) => { if (e.target.dataset?.tag) toggleTag(e.target.dataset.tag); });
 
   $('#bean-form').addEventListener('submit', onBeanSubmit);
   $('#b-photo-input').addEventListener('change', onPhotoPicked);
