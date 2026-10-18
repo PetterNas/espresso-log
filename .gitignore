@@ -1,0 +1,10 @@
+bin/
+obj/
+src/EspressoLog/db/
+publish/
+*.db
+*.db-shm
+*.db-wal
+.DS_Store
+.vs/
+.idea/

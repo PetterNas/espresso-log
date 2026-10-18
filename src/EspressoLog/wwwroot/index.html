@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Espresso Log</title>
+  <meta name="theme-color" content="#ffffff">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Espresso">
+  <link rel="manifest" href="manifest.webmanifest" crossorigin="use-credentials">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><img src="icons/icon-192.png" alt=""><span>Espresso Log</span></div>
+    <nav class="tabs">
+      <button data-tab="log" class="active">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9Z"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17"/><path d="M8 3v3M12 3v3"/></svg>
+        <span>Log</span>
+      </button>
+      <button data-tab="beans">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="12" rx="6.5" ry="9" transform="rotate(35 12 12)"/><path d="M8 18c3-3 1-9 5-12"/></svg>
+        <span>Beans</span>
+      </button>
+      <button data-tab="history">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+        <span>History</span>
+      </button>
+      <button data-tab="charts">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16"/><path d="M7 16v-4M12 16V7M17 16v-6"/></svg>
+        <span>Charts</span>
+      </button>
+    </nav>
+  </aside>
+
+  <div class="content">
+  <header class="top">
+    <h1 id="page-title">New shot</h1>
+    <button type="button" id="status" class="status" hidden></button>
+  </header>
+
+  <main>
+    <!-- LOG -->
+    <section id="tab-log" class="tab active">
+      <div id="no-beans" class="empty-state" hidden>
+        <p>Add the beans you're brewing first. Then you can pick them here.</p>
+        <button type="button" class="primary" data-goto="beans">Add your first beans</button>
+      </div>
+
+      <form id="shot-form" autocomplete="off" novalidate>
+        <p id="form-title" class="subtitle" hidden></p>
+
+        <div class="group">
+          <label class="field">
+            <span>Beans</span>
+            <select id="bean" name="bean" required></select>
+          </label>
+        </div>
+
+        <section id="recent-panel" class="recent">
+          <h2 id="recent-title">Recent shots</h2>
+          <ul id="recent" class="recent-list"></ul>
+        </section>
+
+        <div class="shot-grid">
+        <div class="group">
+          <div class="field">
+            <span>Grinder setting</span>
+            <div class="stepper" data-step="0.5">
+              <button type="button" class="dec" aria-label="Decrease grind">−</button>
+              <input id="grind" name="grind" inputmode="decimal" required>
+              <button type="button" class="inc" aria-label="Increase grind">+</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <span>Dose (g)</span>
+            <div class="stepper" data-step="0.1">
+              <button type="button" class="dec" aria-label="Decrease dose">−</button>
+              <input id="dose" name="dose" inputmode="decimal" required>
+              <button type="button" class="inc" aria-label="Increase dose">+</button>
+            </div>
+          </div>
+
+          <label class="field">
+            <span>Extraction time (s)</span>
+            <input id="time" name="time" class="big" inputmode="numeric" required placeholder="28">
+          </label>
+        </div>
+
+        <div class="group">
+          <div class="field">
+            <span>Yield (g)</span>
+            <div class="stepper" data-step="1">
+              <button type="button" class="dec" aria-label="Decrease yield">−</button>
+              <input id="yield" name="yield" inputmode="decimal" placeholder="—">
+              <button type="button" class="inc" aria-label="Increase yield">+</button>
+            </div>
+          </div>
+          <div class="field">
+            <span>Rating</span>
+            <div class="rating" id="rating">
+              <button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button><button type="button" data-v="5">5</button>
+            </div>
+          </div>
+          <label class="field">
+            <span>Notes</span>
+            <textarea id="notes" name="notes" rows="3" placeholder="Sour, fast, channeling…"></textarea>
+          </label>
+        </div>
+        </div>
+
+        <p id="form-error" class="error" hidden></p>
+
+        <div class="actions">
+          <button type="submit" class="primary" id="save">Save shot</button>
+          <button type="button" id="cancel-edit" class="secondary" hidden>Cancel</button>
+          <button type="button" id="delete" class="danger" hidden>Delete</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- BEANS -->
+    <section id="tab-beans" class="tab">
+      <div id="bean-list-view">
+        <button type="button" id="add-bean" class="primary">+ Add beans</button>
+        <ul id="bean-list" class="cards grid"></ul>
+        <details id="finished-group" class="finished" hidden>
+          <summary id="finished-summary">Finished</summary>
+          <ul id="finished-list" class="cards grid"></ul>
+        </details>
+      </div>
+
+      <form id="bean-form" autocomplete="off" novalidate hidden>
+        <button type="button" id="bean-back" class="back">‹ Beans</button>
+
+        <div class="photo-field">
+          <label class="photo-preview" for="b-photo-input">
+            <img id="b-photo-img" alt="Photo of the beans" hidden>
+            <span id="b-photo-empty" class="photo-empty">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+              Add a photo of the bag or beans
+            </span>
+          </label>
+          <input type="file" id="b-photo-input" accept="image/*" hidden>
+          <div id="b-photo-actions" class="photo-actions" hidden>
+            <label for="b-photo-input" class="secondary small">Change photo</label>
+            <button type="button" id="b-photo-remove" class="danger small">Remove</button>
+          </div>
+        </div>
+
+        <div class="form-grid">
+
+        <div class="group">
+          <label class="field"><span>Name</span><input id="b-name" required placeholder="e.g. Los Naranjos"></label>
+          <div class="field picker"><span>Roaster</span>
+            <select id="b-roaster-pick" aria-label="Roaster"></select>
+            <input id="b-roaster" placeholder="New roaster, e.g. Drop Coffee" hidden>
+          </div>
+          <label class="field"><span>Origin</span><input id="b-origin" placeholder="Country, region, process…"></label>
+        </div>
+
+        <div class="group">
+          <div class="pair">
+            <label class="field"><span>Roast date</span><input id="b-roast" type="date"></label>
+            <label class="field"><span>Bought</span><input id="b-bought" type="date"></label>
+          </div>
+          <div class="field picker"><span>Bought at</span>
+            <select id="b-from-pick" aria-label="Bought at"></select>
+            <input id="b-from" placeholder="New shop or website" hidden>
+          </div>
+          <div class="pair">
+            <label class="field"><span>Price</span><input id="b-price" inputmode="decimal" placeholder="—"></label>
+            <label class="field"><span>Amount (g)</span><input id="b-amount" inputmode="decimal" placeholder="250"></label>
+          </div>
+        </div>
+
+        <div class="group span-2">
+          <div class="field">
+            <span>Rating</span>
+            <div class="rating" id="b-rating">
+              <button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button><button type="button" data-v="5">5</button>
+            </div>
+          </div>
+          <label class="field">
+            <span>Review</span>
+            <textarea id="b-review" rows="4" placeholder="What you like about them, how they taste, what grind works…"></textarea>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="b-finished">
+            <span>Finished: hide from the shot log</span>
+          </label>
+        </div>
+
+        </div>
+
+        <p id="bean-error" class="error" hidden></p>
+
+        <div class="actions">
+          <button type="submit" class="primary" id="bean-save">Save beans</button>
+          <button type="button" id="bean-delete" class="danger" hidden>Delete</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="tab-history" class="tab">
+      <div class="toolbar">
+        <select id="history-filter" aria-label="Filter by beans"><option value="">All beans</option></select>
+        <a href="/api/shots.csv" class="link">Export CSV</a>
+      </div>
+      <ul id="history" class="cards grid"></ul>
+    </section>
+
+    <!-- CHARTS -->
+    <section id="tab-charts" class="tab">
+      <div class="toolbar">
+        <select id="chart-filter" aria-label="Filter by beans"><option value="">All beans</option></select>
+      </div>
+      <div class="chart-grid">
+      <figure class="chart"><figcaption>Extraction time vs grind setting</figcaption><canvas id="c-grind"></canvas></figure>
+      <figure class="chart"><figcaption>Extraction time per shot</figcaption><canvas id="c-time"></canvas></figure>
+      <figure class="chart"><figcaption>Brew ratio (yield ÷ dose)</figcaption><canvas id="c-ratio"></canvas></figure>
+      </div>
+      <p id="chart-empty" class="empty" hidden>Log a few shots to see charts.</p>
+    </section>
+  </main>
+  </div>
+
+
+  <script src="lib/chart.umd.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
