@@ -477,6 +477,7 @@ function openBeanForm(bean) {
   showError('', '#bean-error');
   $('#bean-delete').hidden = !bean;
   $('#bean-save').textContent = bean ? 'Save changes' : 'Add beans';
+  renderBeanShots(bean);
   $('#bean-list-view').hidden = true;
   $('#bean-form').hidden = false;
   updateTitle();
@@ -687,27 +688,60 @@ function shotNums(s) {
   return parts;
 }
 
-function renderHistory() {
-  const filter = Number($('#history-filter').value) || null;
-  const pending = queued().slice().reverse().map((s) => ({ ...s, pending: true }));
-  const shots = [...pending, ...state.shots].filter((s) => !filter || s.beanId === filter);
-  const list = $('#history');
-  if (!shots.length) {
-    list.innerHTML = '<li class="empty">No shots yet.</li>';
-    return;
-  }
-  list.innerHTML = shots.map((s, i) => `
+// Queued and synced shots, newest first by when they were pulled (not when last edited).
+function shotsNewestFirst() {
+  const pending = queued().map((s) => ({ ...s, pending: true }));
+  return [...pending, ...state.shots].sort((a, b) =>
+    new Date(b.createdAt) - new Date(a.createdAt) || (b.id ?? Infinity) - (a.id ?? Infinity));
+}
+
+function dayLabel(iso) {
+  const d = new Date(iso);
+  const ago = daysSince(`${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`);
+  if (ago === 0) return 'Today';
+  if (ago === 1) return 'Yesterday';
+  return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: ago > 300 ? 'numeric' : undefined });
+}
+
+function shotCard(s, i) {
+  const time = new Date(s.createdAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  return `
     <li class="card${s.pending ? ' pending' : ''}" data-i="${i}">
-      <div class="row1"><span>${formatDate(s.createdAt)}${restDay(s) ? ' · ' + restDay(s) : ''}</span><span>${s.pending ? 'not synced' : '#' + s.id}</span></div>
+      <div class="row1"><span>${time}${restDay(s) ? ' · ' + restDay(s) : ''}</span><span>${s.pending ? 'not synced' : '#' + s.id}</span></div>
       <div class="title">${esc(s.beanName)}${s.best ? ' <span class="badge-best">★ Best</span>' : ''}</div>
       <div class="nums">${shotNums(s).map((p) => `<span>${p}</span>`).join('')}</div>
       ${tagLine(s)}
       ${s.notes ? `<div class="notes">${esc(s.notes)}</div>` : ''}
-    </li>`).join('');
+    </li>`;
+}
+
+// One column of shot cards with a header before each day.
+function renderShotList(list, shots, empty) {
+  if (!shots.length) {
+    list.innerHTML = `<li class="empty">${empty}</li>`;
+    return;
+  }
+  let lastDay = null;
+  list.innerHTML = shots.map((s, i) => {
+    const day = dayLabel(s.createdAt);
+    const head = day !== lastDay ? `<li class="day-head">${day}</li>` : '';
+    lastDay = day;
+    return head + shotCard(s, i);
+  }).join('');
   list.querySelectorAll('.card').forEach((el) => {
     const shot = shots[Number(el.dataset.i)];
     if (!shot.pending) el.addEventListener('click', () => startEdit(shot));
   });
+}
+
+function renderHistory() {
+  const filter = Number($('#history-filter').value) || null;
+  renderShotList($('#history'), shotsNewestFirst().filter((s) => !filter || s.beanId === filter), 'No shots yet.');
+}
+
+function renderBeanShots(bean) {
+  $('#bean-shots-panel').hidden = !bean;
+  if (bean) renderShotList($('#bean-shots'), shotsNewestFirst().filter((s) => s.beanId === bean.id), 'No shots with these beans yet.');
 }
 
 // The last few shots with the beans picked in the form: the reference while dialing in.

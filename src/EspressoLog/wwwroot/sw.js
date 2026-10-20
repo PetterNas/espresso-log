@@ -1,5 +1,5 @@
 // App-shell cache. API calls always go to the network; the page handles offline itself.
-const CACHE = 'espresso-v6';
+const CACHE = 'espresso-v7';
 const SHELL = [
   '/',
   '/index.html',

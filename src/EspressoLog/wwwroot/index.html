@@ -221,6 +221,11 @@
           <button type="submit" class="primary" id="bean-save">Save beans</button>
           <button type="button" id="bean-delete" class="danger" hidden>Delete</button>
         </div>
+
+        <section id="bean-shots-panel" class="bean-shots" hidden>
+          <h2>Shots with these beans</h2>
+          <ul id="bean-shots" class="cards shot-list"></ul>
+        </section>
       </form>
     </section>
 
@@ -230,7 +235,7 @@
         <select id="history-filter" aria-label="Filter by beans"><option value="">All beans</option></select>
         <a href="/api/shots.csv" class="link">Export CSV</a>
       </div>
-      <ul id="history" class="cards grid"></ul>
+      <ul id="history" class="cards shot-list"></ul>
     </section>
 
     <!-- CHARTS -->

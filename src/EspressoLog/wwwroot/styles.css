@@ -304,6 +304,11 @@ label.secondary { display: inline-block; font-weight: 600; border-radius: 99px; 
 .card .nums b { font-weight: 650; }
 .card .notes { margin-top: 10px; font-size: 14px; color: var(--muted); }
 .card.pending { opacity: .6; border-style: dashed; }
+.shot-list { max-width: 720px; }
+.day-head { font-size: 13px; font-weight: 650; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: 12px 4px -4px; }
+.day-head:first-child { margin-top: 0; }
+.bean-shots { margin-top: 32px; }
+.bean-shots h2 { font-size: 15px; font-weight: 650; margin: 0 4px 10px; }
 .stars { color: var(--accent); letter-spacing: 1px; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
