@@ -6,11 +6,15 @@ COPY src/EspressoLog/EspressoLog.csproj src/EspressoLog/
 RUN dotnet restore src/EspressoLog -a $TARGETARCH
 COPY src/EspressoLog/ src/EspressoLog/
 RUN dotnet publish src/EspressoLog -c Release -a $TARGETARCH --no-restore -o /app -p:UseAppHost=false
+# The runtime image has no shell, so create the data folder here.
+RUN mkdir /data
 
 # Chiseled: no shell or package manager, runs as non-root.
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled
 WORKDIR /app
 COPY --from=build /app .
+# Owned by the non-root app user, so a fresh volume is writable.
+COPY --from=build --chown=$APP_UID:$APP_UID /data /data
 ENV ASPNETCORE_HTTP_PORTS=8080 \
     ConnectionStrings__Db="Data Source=/data/espresso.db"
 VOLUME /data
